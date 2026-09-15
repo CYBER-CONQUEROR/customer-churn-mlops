@@ -1,0 +1,127 @@
+name: Automated MLOps Retraining
+
+on:
+  # Allows us to demonstrate the pipeline from GitHub
+  workflow_dispatch:
+
+  # Automatically check once per day
+  schedule:
+    - cron: "0 0 * * *"
+
+  # Automatically run when a new incoming batch is committed
+  push:
+    branches:
+      - main
+    paths:
+      - "data/incoming_data.csv"
+
+permissions:
+  contents: write
+
+jobs:
+
+  retrain-and-promote:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ==========================================
+      # CHECKOUT
+      # ==========================================
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+
+      # ==========================================
+      # PYTHON
+      # ==========================================
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+
+      # ==========================================
+      # INSTALL DEPENDENCIES
+      # ==========================================
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+
+      # ==========================================
+      # CHECK REQUIRED FILES
+      # ==========================================
+
+      - name: Check MLOps files
+        run: |
+          test -f data/telco_churn.csv
+          test -f data/incoming_data.csv
+          test -f models/churn_model.joblib
+          test -f monitoring/drift.py
+          test -f monitoring/retrain.py
+          test -f monitoring/promote.py
+
+          echo "Required MLOps files found."
+
+
+      # ==========================================
+      # RUN AUTOMATED PIPELINE
+      # ==========================================
+
+      - name: Run drift monitoring and retraining
+        run: |
+          python monitoring/pipeline.py
+
+
+      # ==========================================
+      # CHECK WHETHER MODEL CHANGED
+      # ==========================================
+
+      - name: Check production model
+        id: model_check
+        shell: bash
+        run: |
+          if git diff --quiet -- models/churn_model.joblib; then
+
+            echo "Production model did not change."
+            echo "model_changed=false" >> "$GITHUB_OUTPUT"
+
+          else
+
+            echo "A new production model was promoted."
+            echo "model_changed=true" >> "$GITHUB_OUTPUT"
+
+          fi
+
+
+      # ==========================================
+      # COMMIT PROMOTED MODEL
+      # ==========================================
+
+      - name: Commit promoted production model
+        if: steps.model_check.outputs.model_changed == 'true'
+        run: |
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -f models/churn_model.joblib
+
+          git commit -m "Deploy automatically promoted churn model"
+
+          git push
+
+
+      # ==========================================
+      # FINISH
+      # ==========================================
+
+      - name: Pipeline completed
+        run: |
+          echo "Automated MLOps pipeline completed successfully."
