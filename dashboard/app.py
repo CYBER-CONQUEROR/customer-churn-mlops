@@ -4,392 +4,862 @@ import joblib
 from pathlib import Path
 
 
-# --------------------------------------------------
-# PAGE CONFIGURATION
-# --------------------------------------------------
+# ==================================================
+# CONFIGURATION
+# ==================================================
 
 st.set_page_config(
-    page_title="Customer Churn Prediction",
-    page_icon="📊",
-    layout="centered"
+    page_title="Customer Churn AI Platform",
+    page_icon="🤖",
+    layout="wide"
 )
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-# --------------------------------------------------
-# LOAD TRAINED MODEL
-# --------------------------------------------------
+MODEL_FILE = PROJECT_ROOT / "models" / "churn_model.joblib"
+INCOMING_FILE = PROJECT_ROOT / "data" / "incoming_data.csv"
+
+
+# ==================================================
+# LOAD PRODUCTION MODEL
+# ==================================================
 
 @st.cache_resource
 def load_model():
-
-    # Get project root directory
-    project_root = Path(__file__).resolve().parent.parent
-
-    model_path = project_root / "models" / "churn_model.joblib"
-
-    return joblib.load(model_path)
+    return joblib.load(MODEL_FILE)
 
 
 try:
     model = load_model()
 
 except Exception as error:
-
-    st.error("Could not load the trained churn model.")
-
+    st.error("Could not load the production model.")
     st.error(str(error))
-
     st.stop()
 
 
-# --------------------------------------------------
-# HEADER
-# --------------------------------------------------
+# ==================================================
+# REQUIRED DATASET SCHEMA
+# ==================================================
 
-st.title("📊 Customer Churn Prediction Platform")
+REQUIRED_COLUMNS = [
+    "customerID",
+    "gender",
+    "SeniorCitizen",
+    "Partner",
+    "Dependents",
+    "tenure",
+    "PhoneService",
+    "MultipleLines",
+    "InternetService",
+    "OnlineSecurity",
+    "OnlineBackup",
+    "DeviceProtection",
+    "TechSupport",
+    "StreamingTV",
+    "StreamingMovies",
+    "Contract",
+    "PaperlessBilling",
+    "PaymentMethod",
+    "MonthlyCharges",
+    "TotalCharges",
+    "Churn"
+]
+
+
+# ==================================================
+# HEADER
+# ==================================================
+
+st.title("🤖 Customer Churn AI Platform")
 
 st.write(
-    "Enter the customer's information below to predict "
-    "whether the customer is likely to churn."
+    "Real-Time Customer Churn Prediction "
+    "and Automated MLOps Monitoring Platform"
 )
 
 st.divider()
 
 
-# --------------------------------------------------
-# CUSTOMER INFORMATION
-# --------------------------------------------------
+# ==================================================
+# MAIN TABS
+# ==================================================
 
-st.subheader("Customer Information")
-
-
-gender = st.selectbox(
-    "Gender",
-    ["Male", "Female"]
-)
-
-
-senior = st.selectbox(
-    "Senior Citizen",
-    [0, 1],
-    help="0 = No, 1 = Yes"
-)
-
-
-partner = st.selectbox(
-    "Partner",
-    ["Yes", "No"]
-)
-
-
-dependents = st.selectbox(
-    "Dependents",
-    ["Yes", "No"]
-)
-
-
-tenure = st.number_input(
-    "Tenure (months)",
-    min_value=0,
-    max_value=100,
-    value=12
-)
-
-
-# --------------------------------------------------
-# PHONE SERVICES
-# --------------------------------------------------
-
-st.subheader("Phone Services")
-
-
-phone_service = st.selectbox(
-    "Phone Service",
-    ["Yes", "No"]
-)
-
-
-multiple_lines = st.selectbox(
-    "Multiple Lines",
+prediction_tab, monitoring_tab = st.tabs(
     [
-        "No",
-        "Yes",
-        "No phone service"
+        "🔮 Real-Time Prediction",
+        "⚙️ MLOps Monitoring"
     ]
 )
 
 
-# --------------------------------------------------
-# INTERNET SERVICES
-# --------------------------------------------------
+# ==================================================
+# TAB 1 — REAL-TIME PREDICTION
+# ==================================================
 
-st.subheader("Internet Services")
+with prediction_tab:
 
+    st.header("🔮 Customer Churn Prediction")
 
-internet_service = st.selectbox(
-    "Internet Service",
-    [
-        "DSL",
-        "Fiber optic",
-        "No"
-    ]
-)
+    st.write(
+        "Enter customer information below to receive "
+        "a real-time churn prediction."
+    )
 
-
-online_security = st.selectbox(
-    "Online Security",
-    [
-        "Yes",
-        "No",
-        "No internet service"
-    ]
-)
+    col1, col2 = st.columns(2)
 
 
-online_backup = st.selectbox(
-    "Online Backup",
-    [
-        "Yes",
-        "No",
-        "No internet service"
-    ]
-)
+    # --------------------------------------------------
+    # LEFT COLUMN
+    # --------------------------------------------------
+
+    with col1:
+
+        gender = st.selectbox(
+            "Gender",
+            ["Male", "Female"]
+        )
+
+        senior = st.selectbox(
+            "Senior Citizen",
+            [0, 1],
+            help="0 = No, 1 = Yes"
+        )
+
+        partner = st.selectbox(
+            "Partner",
+            ["Yes", "No"]
+        )
+
+        dependents = st.selectbox(
+            "Dependents",
+            ["Yes", "No"]
+        )
+
+        tenure = st.number_input(
+            "Tenure (months)",
+            min_value=0,
+            max_value=100,
+            value=12
+        )
+
+        phone_service = st.selectbox(
+            "Phone Service",
+            ["Yes", "No"]
+        )
+
+        multiple_lines = st.selectbox(
+            "Multiple Lines",
+            [
+                "No",
+                "Yes",
+                "No phone service"
+            ]
+        )
+
+        internet_service = st.selectbox(
+            "Internet Service",
+            [
+                "DSL",
+                "Fiber optic",
+                "No"
+            ]
+        )
+
+        online_security = st.selectbox(
+            "Online Security",
+            [
+                "Yes",
+                "No",
+                "No internet service"
+            ]
+        )
 
 
-device_protection = st.selectbox(
-    "Device Protection",
-    [
-        "Yes",
-        "No",
-        "No internet service"
-    ]
-)
+    # --------------------------------------------------
+    # RIGHT COLUMN
+    # --------------------------------------------------
+
+    with col2:
+
+        online_backup = st.selectbox(
+            "Online Backup",
+            [
+                "Yes",
+                "No",
+                "No internet service"
+            ]
+        )
+
+        device_protection = st.selectbox(
+            "Device Protection",
+            [
+                "Yes",
+                "No",
+                "No internet service"
+            ]
+        )
+
+        tech_support = st.selectbox(
+            "Tech Support",
+            [
+                "Yes",
+                "No",
+                "No internet service"
+            ]
+        )
+
+        streaming_tv = st.selectbox(
+            "Streaming TV",
+            [
+                "Yes",
+                "No",
+                "No internet service"
+            ]
+        )
+
+        streaming_movies = st.selectbox(
+            "Streaming Movies",
+            [
+                "Yes",
+                "No",
+                "No internet service"
+            ]
+        )
+
+        contract = st.selectbox(
+            "Contract",
+            [
+                "Month-to-month",
+                "One year",
+                "Two year"
+            ]
+        )
+
+        paperless = st.selectbox(
+            "Paperless Billing",
+            ["Yes", "No"]
+        )
+
+        payment_method = st.selectbox(
+            "Payment Method",
+            [
+                "Electronic check",
+                "Mailed check",
+                "Bank transfer (automatic)",
+                "Credit card (automatic)"
+            ]
+        )
+
+        monthly_charges = st.number_input(
+            "Monthly Charges ($)",
+            min_value=0.0,
+            value=70.0,
+            step=1.0
+        )
+
+        total_charges = st.number_input(
+            "Total Charges ($)",
+            min_value=0.0,
+            value=500.0,
+            step=10.0
+        )
 
 
-tech_support = st.selectbox(
-    "Tech Support",
-    [
-        "Yes",
-        "No",
-        "No internet service"
-    ]
-)
+    # --------------------------------------------------
+    # PREDICTION BUTTON
+    # --------------------------------------------------
 
+    st.divider()
 
-streaming_tv = st.selectbox(
-    "Streaming TV",
-    [
-        "Yes",
-        "No",
-        "No internet service"
-    ]
-)
+    if st.button(
+        "🔍 Predict Churn",
+        type="primary",
+        use_container_width=True
+    ):
 
+        customer = {
+            "gender": gender,
+            "SeniorCitizen": senior,
+            "Partner": partner,
+            "Dependents": dependents,
+            "tenure": tenure,
+            "PhoneService": phone_service,
+            "MultipleLines": multiple_lines,
+            "InternetService": internet_service,
+            "OnlineSecurity": online_security,
+            "OnlineBackup": online_backup,
+            "DeviceProtection": device_protection,
+            "TechSupport": tech_support,
+            "StreamingTV": streaming_tv,
+            "StreamingMovies": streaming_movies,
+            "Contract": contract,
+            "PaperlessBilling": paperless,
+            "PaymentMethod": payment_method,
+            "MonthlyCharges": monthly_charges,
+            "TotalCharges": total_charges
+        }
 
-streaming_movies = st.selectbox(
-    "Streaming Movies",
-    [
-        "Yes",
-        "No",
-        "No internet service"
-    ]
-)
-
-
-# --------------------------------------------------
-# BILLING INFORMATION
-# --------------------------------------------------
-
-st.subheader("Billing Information")
-
-
-contract = st.selectbox(
-    "Contract",
-    [
-        "Month-to-month",
-        "One year",
-        "Two year"
-    ]
-)
-
-
-paperless = st.selectbox(
-    "Paperless Billing",
-    ["Yes", "No"]
-)
-
-
-payment_method = st.selectbox(
-    "Payment Method",
-    [
-        "Electronic check",
-        "Mailed check",
-        "Bank transfer (automatic)",
-        "Credit card (automatic)"
-    ]
-)
-
-
-monthly_charges = st.number_input(
-    "Monthly Charges ($)",
-    min_value=0.0,
-    value=70.0,
-    step=1.0
-)
-
-
-total_charges = st.number_input(
-    "Total Charges ($)",
-    min_value=0.0,
-    value=500.0,
-    step=10.0
-)
-
-
-st.divider()
-
-
-# --------------------------------------------------
-# PREDICTION
-# --------------------------------------------------
-
-if st.button(
-    "🔍 Predict Churn",
-    type="primary",
-    use_container_width=True
-):
-
-    # Customer data must use the same feature names
-    # that were used during model training.
-
-    customer = {
-
-        "gender": gender,
-
-        "SeniorCitizen": senior,
-
-        "Partner": partner,
-
-        "Dependents": dependents,
-
-        "tenure": tenure,
-
-        "PhoneService": phone_service,
-
-        "MultipleLines": multiple_lines,
-
-        "InternetService": internet_service,
-
-        "OnlineSecurity": online_security,
-
-        "OnlineBackup": online_backup,
-
-        "DeviceProtection": device_protection,
-
-        "TechSupport": tech_support,
-
-        "StreamingTV": streaming_tv,
-
-        "StreamingMovies": streaming_movies,
-
-        "Contract": contract,
-
-        "PaperlessBilling": paperless,
-
-        "PaymentMethod": payment_method,
-
-        "MonthlyCharges": monthly_charges,
-
-        "TotalCharges": total_charges
-    }
-
-
-    try:
-
-        # Convert customer input into DataFrame
         customer_df = pd.DataFrame([customer])
 
+        try:
 
-        # Make prediction
-        prediction_value = model.predict(
-            customer_df
-        )[0]
+            prediction = model.predict(
+                customer_df
+            )[0]
 
+            probability = model.predict_proba(
+                customer_df
+            )[0][1]
 
-        # Get prediction probabilities
-        probabilities = model.predict_proba(
-            customer_df
-        )[0]
+            probability_percent = round(
+                float(probability) * 100,
+                2
+            )
 
+            st.subheader("Prediction Result")
 
-        churn_probability = float(
-            probabilities[1]
-        )
+            if prediction == 1:
 
+                st.error(
+                    f"⚠️ Customer is likely to CHURN — "
+                    f"{probability_percent}% probability"
+                )
 
-        probability_percent = round(
-            churn_probability * 100,
-            2
-        )
+            else:
 
+                st.success(
+                    f"✅ Customer is likely to STAY — "
+                    f"{probability_percent}% churn probability"
+                )
 
-        # --------------------------------------------------
-        # DISPLAY RESULT
-        # --------------------------------------------------
+            result1, result2 = st.columns(2)
 
-        st.subheader("Prediction Result")
+            with result1:
+                st.metric(
+                    "Prediction",
+                    "Churn" if prediction == 1 else "Stay"
+                )
 
+            with result2:
+                st.metric(
+                    "Churn Probability",
+                    f"{probability_percent}%"
+                )
 
-        if prediction_value == 1:
+            st.write("### Churn Risk")
+
+            st.progress(
+                min(
+                    max(float(probability), 0.0),
+                    1.0
+                )
+            )
+
+        except Exception as error:
 
             st.error(
-                f"⚠️ Customer is likely to CHURN "
-                f"— {probability_percent}% probability"
+                "An error occurred while making the prediction."
+            )
+
+            st.error(str(error))
+
+
+# ==================================================
+# TAB 2 — MLOPS MONITORING
+# ==================================================
+
+with monitoring_tab:
+
+    st.header("⚙️ MLOps Monitoring Dashboard")
+
+    st.write(
+        "Monitor the production model and upload newly "
+        "collected labeled customer data for the "
+        "automated MLOps pipeline."
+    )
+
+
+    # ==================================================
+    # PRODUCTION MODEL STATUS
+    # ==================================================
+
+    st.subheader("📦 Production Model Status")
+
+    status1, status2 = st.columns(2)
+
+    with status1:
+
+        if MODEL_FILE.exists():
+
+            st.success(
+                "🟢 Production model available"
             )
 
         else:
 
-            st.success(
-                f"✅ Customer is likely to STAY "
-                f"— Churn probability: "
-                f"{probability_percent}%"
+            st.error(
+                "🔴 Production model unavailable"
             )
 
-
-        # Probability progress bar
-        st.write("### Churn Risk")
-
-        st.progress(
-            min(
-                max(churn_probability, 0.0),
-                1.0
-            )
-        )
-
+    with status2:
 
         st.metric(
-            label="Churn Probability",
-            value=f"{probability_percent}%"
+            "Model",
+            "Customer Churn Classifier"
+        )
+
+    st.caption(
+        "Production model: models/churn_model.joblib"
+    )
+
+    st.divider()
+
+
+    # ==================================================
+    # DOWNLOAD SAMPLE CSV
+    # ==================================================
+
+    st.subheader("📄 Incoming Data Schema")
+
+    st.write(
+        "New labeled production data must follow the "
+        "same schema used by the churn model."
+    )
+
+
+    sample_data = pd.DataFrame(
+        [
+            {
+                "customerID": "DEMO-0001",
+                "gender": "Female",
+                "SeniorCitizen": 0,
+                "Partner": "Yes",
+                "Dependents": "No",
+                "tenure": 12,
+                "PhoneService": "Yes",
+                "MultipleLines": "No",
+                "InternetService": "Fiber optic",
+                "OnlineSecurity": "No",
+                "OnlineBackup": "Yes",
+                "DeviceProtection": "No",
+                "TechSupport": "No",
+                "StreamingTV": "Yes",
+                "StreamingMovies": "Yes",
+                "Contract": "Month-to-month",
+                "PaperlessBilling": "Yes",
+                "PaymentMethod": "Electronic check",
+                "MonthlyCharges": 85.50,
+                "TotalCharges": 1026.00,
+                "Churn": "Yes"
+            },
+            {
+                "customerID": "DEMO-0002",
+                "gender": "Male",
+                "SeniorCitizen": 0,
+                "Partner": "Yes",
+                "Dependents": "Yes",
+                "tenure": 48,
+                "PhoneService": "Yes",
+                "MultipleLines": "Yes",
+                "InternetService": "DSL",
+                "OnlineSecurity": "Yes",
+                "OnlineBackup": "Yes",
+                "DeviceProtection": "Yes",
+                "TechSupport": "Yes",
+                "StreamingTV": "No",
+                "StreamingMovies": "No",
+                "Contract": "Two year",
+                "PaperlessBilling": "No",
+                "PaymentMethod": "Credit card (automatic)",
+                "MonthlyCharges": 55.25,
+                "TotalCharges": 2652.00,
+                "Churn": "No"
+            }
+        ]
+    )
+
+
+    sample_csv = sample_data.to_csv(
+        index=False
+    )
+
+
+    st.download_button(
+        label="⬇️ Download Sample CSV Template",
+        data=sample_csv,
+        file_name="customer_churn_sample.csv",
+        mime="text/csv",
+        use_container_width=True
+    )
+
+    st.caption(
+        "Download this file to view the required "
+        "column names, format, and example values."
+    )
+
+
+    # ==================================================
+    # SHOW REQUIRED COLUMNS
+    # ==================================================
+
+    with st.expander(
+        "👀 View Required Dataset Columns"
+    ):
+
+        schema_df = pd.DataFrame(
+            {
+                "Column": REQUIRED_COLUMNS
+            }
+        )
+
+        st.dataframe(
+            schema_df,
+            use_container_width=True,
+            hide_index=True
         )
 
 
-    except Exception as error:
-
-        st.error(
-            "An error occurred while making "
-            "the prediction."
-        )
-
-        st.error(str(error))
+    st.divider()
 
 
-# --------------------------------------------------
+    # ==================================================
+    # UPLOAD NEW DATA
+    # ==================================================
+
+    st.subheader("📤 Upload Incoming Customer Data")
+
+    st.info(
+        "Upload a CSV containing newly collected "
+        "labeled customer records. The 'Churn' column "
+        "is required because the data may be used "
+        "for model retraining."
+    )
+
+
+    uploaded_file = st.file_uploader(
+        "Choose incoming customer CSV",
+        type=["csv"]
+    )
+
+
+    # ==================================================
+    # PROCESS UPLOADED DATA
+    # ==================================================
+
+    if uploaded_file is not None:
+
+        try:
+
+            incoming_data = pd.read_csv(
+                uploaded_file
+            )
+
+            st.success(
+                "✅ CSV uploaded successfully."
+            )
+
+
+            # ==================================================
+            # DATASET METRICS
+            # ==================================================
+
+            st.subheader("📊 Incoming Dataset Summary")
+
+            metric1, metric2, metric3 = st.columns(3)
+
+            metric1.metric(
+                "Incoming Records",
+                len(incoming_data)
+            )
+
+            metric2.metric(
+                "Columns",
+                len(incoming_data.columns)
+            )
+
+            missing_values = (
+                incoming_data
+                .isnull()
+                .sum()
+                .sum()
+            )
+
+            metric3.metric(
+                "Missing Values",
+                int(missing_values)
+            )
+
+
+            # ==================================================
+            # DATA PREVIEW
+            # ==================================================
+
+            st.subheader("👀 Incoming Data Preview")
+
+            st.dataframe(
+                incoming_data.head(10),
+                use_container_width=True
+            )
+
+
+            # ==================================================
+            # SCHEMA VALIDATION
+            # ==================================================
+
+            st.subheader("🔎 Schema Validation")
+
+            missing_columns = [
+                column
+                for column in REQUIRED_COLUMNS
+                if column not in incoming_data.columns
+            ]
+
+            extra_columns = [
+                column
+                for column in incoming_data.columns
+                if column not in REQUIRED_COLUMNS
+            ]
+
+
+            # ==================================================
+            # INVALID SCHEMA
+            # ==================================================
+
+            if missing_columns:
+
+                st.error(
+                    "❌ Dataset schema is invalid."
+                )
+
+                st.write(
+                    "**Missing required columns:**"
+                )
+
+                for column in missing_columns:
+
+                    st.write(
+                        f"• {column}"
+                    )
+
+
+            # ==================================================
+            # VALID SCHEMA
+            # ==================================================
+
+            else:
+
+                st.success(
+                    "✅ Dataset schema is valid."
+                )
+
+                if extra_columns:
+
+                    st.warning(
+                        "Extra columns were detected. "
+                        "They will not be used by the model."
+                    )
+
+                    st.write(extra_columns)
+
+
+                # ==================================================
+                # TARGET LABEL VALIDATION
+                # ==================================================
+
+                st.subheader(
+                    "🎯 Target Label Validation"
+                )
+
+                invalid_labels = (
+                    ~incoming_data["Churn"]
+                    .isin(["Yes", "No"])
+                )
+
+
+                if invalid_labels.any():
+
+                    st.error(
+                        "❌ The Churn column contains "
+                        "invalid values."
+                    )
+
+                    st.write(
+                        "Allowed values are:"
+                    )
+
+                    st.code(
+                        "Yes\nNo"
+                    )
+
+
+                else:
+
+                    st.success(
+                        "✅ Target labels are valid."
+                    )
+
+
+                    # ==================================================
+                    # LABEL DISTRIBUTION
+                    # ==================================================
+
+                    st.subheader(
+                        "📊 Churn Distribution"
+                    )
+
+                    churn_counts = (
+                        incoming_data["Churn"]
+                        .value_counts()
+                        .rename_axis("Churn")
+                        .reset_index(name="Customers")
+                    )
+
+                    st.dataframe(
+                        churn_counts,
+                        use_container_width=True,
+                        hide_index=True
+                    )
+
+
+                    # ==================================================
+                    # ACCEPT DATA
+                    # ==================================================
+
+                    st.divider()
+
+                    st.subheader(
+                        "✅ Accept Production Batch"
+                    )
+
+                    st.write(
+                        "After validation, accept this "
+                        "dataset as the latest incoming "
+                        "production batch."
+                    )
+
+
+                    if st.button(
+                        "💾 Accept Incoming Data",
+                        type="primary",
+                        use_container_width=True
+                    ):
+
+                        # Remove any unsupported extra columns
+                        accepted_data = incoming_data[
+                            REQUIRED_COLUMNS
+                        ].copy()
+
+
+                        # Add arrival timestamp
+                        accepted_data[
+                            "received_at"
+                        ] = pd.Timestamp.now(
+                            tz="UTC"
+                        ).isoformat()
+
+
+                        # Ensure data directory exists
+                        INCOMING_FILE.parent.mkdir(
+                            parents=True,
+                            exist_ok=True
+                        )
+
+
+                        # Save incoming production data
+                        accepted_data.to_csv(
+                            INCOMING_FILE,
+                            index=False
+                        )
+
+
+                        st.success(
+                            "🎉 Incoming production batch "
+                            "accepted successfully!"
+                        )
+
+
+                        st.write(
+                            f"**Records accepted:** "
+                            f"{len(accepted_data)}"
+                        )
+
+
+                        st.info(
+                            "The incoming dataset is now "
+                            "ready for drift detection and "
+                            "the automated retraining pipeline."
+                        )
+
+
+        except Exception as error:
+
+            st.error(
+                "❌ Unable to process the uploaded CSV."
+            )
+
+            st.error(
+                str(error)
+            )
+
+
+    # ==================================================
+    # MLOPS PIPELINE STATUS
+    # ==================================================
+
+    st.divider()
+
+    st.subheader(
+        "🔄 Automated MLOps Pipeline"
+    )
+
+    st.write(
+        "Validated production data flows through "
+        "the following MLOps lifecycle:"
+    )
+
+    st.code(
+        """
+Incoming Labeled Customer Data
+              ↓
+       Schema Validation
+              ↓
+      Data Drift Detection
+         (Evidently)
+              ↓
+        Drift Detected?
+          ↙       ↘
+        No         Yes
+        ↓           ↓
+   Keep Model   Retraining
+                    ↓
+             MLflow Tracking
+                    ↓
+             Candidate Model
+                    ↓
+             Model Validation
+                    ↓
+          Candidate Better?
+              ↙         ↘
+            No           Yes
+            ↓             ↓
+          Reject       Promote
+                          ↓
+                       CI/CD
+                          ↓
+                Production Deployment
+        """
+    )
+
+
+# ==================================================
 # FOOTER
-# --------------------------------------------------
+# ==================================================
 
 st.divider()
 
 st.caption(
-    "Customer Churn Prediction | "
-    "MLOps Real-Time AI Prediction Platform"
+    "Customer Churn AI Platform | "
+    "Real-Time Prediction • Data Drift Monitoring • "
+    "Automated Retraining • MLOps"
 )
