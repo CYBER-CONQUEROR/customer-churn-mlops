@@ -1,51 +1,82 @@
 import pandas as pd
 import subprocess
 import sys
+from pathlib import Path
 
 from evidently import Report
 from evidently.presets import DataDriftPreset
 
 
 # --------------------------------------------------
-# 1. LOAD DATA
+# PATHS
 # --------------------------------------------------
 
-df = pd.read_csv("data/telco_churn.csv")
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-df["TotalCharges"] = pd.to_numeric(
-    df["TotalCharges"],
+REFERENCE_FILE = PROJECT_ROOT / "data" / "telco_churn.csv"
+INCOMING_FILE = PROJECT_ROOT / "data" / "incoming_data.csv"
+
+REPORT_FILE = PROJECT_ROOT / "monitoring" / "drift_report.html"
+
+
+# --------------------------------------------------
+# LOAD DATA
+# --------------------------------------------------
+
+print("\n====================================")
+print("DATA DRIFT MONITORING")
+print("====================================")
+
+reference_data = pd.read_csv(REFERENCE_FILE)
+current_data = pd.read_csv(INCOMING_FILE)
+
+print(f"Reference records: {len(reference_data)}")
+print(f"Incoming records: {len(current_data)}")
+
+
+# --------------------------------------------------
+# PREPARE DATA
+# --------------------------------------------------
+
+# Convert TotalCharges to numeric
+reference_data["TotalCharges"] = pd.to_numeric(
+    reference_data["TotalCharges"],
     errors="coerce"
 )
 
-df = df.drop(
-    columns=["customerID", "Churn"]
+current_data["TotalCharges"] = pd.to_numeric(
+    current_data["TotalCharges"],
+    errors="coerce"
 )
 
 
-# --------------------------------------------------
-# 2. CREATE REFERENCE + CURRENT DATA
-# --------------------------------------------------
-
-reference_data = df.iloc[:3500].copy()
-current_data = df.iloc[3500:].copy()
-
-
-# --------------------------------------------------
-# 3. SIMULATE DRIFT
-# --------------------------------------------------
-
-current_data["MonthlyCharges"] = (
-    current_data["MonthlyCharges"] * 1.35
+# Remove columns that should not be used for drift detection
+reference_data = reference_data.drop(
+    columns=["customerID", "Churn"],
+    errors="ignore"
 )
 
-current_data["tenure"] = (
-    current_data["tenure"] * 0.6
+current_data = current_data.drop(
+    columns=[
+        "customerID",
+        "Churn",
+        "received_at"
+    ],
+    errors="ignore"
 )
 
 
+# Make sure both datasets contain the same columns
+current_data = current_data[
+    reference_data.columns
+]
+
+
 # --------------------------------------------------
-# 4. RUN EVIDENTLY DRIFT REPORT
+# RUN EVIDENTLY DRIFT REPORT
 # --------------------------------------------------
+
+print("\nRunning Evidently drift analysis...")
 
 report = Report(
     metrics=[
@@ -60,48 +91,112 @@ result = report.run(
 
 
 # --------------------------------------------------
-# 5. SAVE HTML REPORT
+# SAVE REPORT
 # --------------------------------------------------
 
-result.save_html(
-    "monitoring/drift_report.html"
-)
+result.save_html(str(REPORT_FILE))
 
-print("\nDrift report created.")
-print("Open: monitoring/drift_report.html")
+print("\nDrift report created:")
+print(REPORT_FILE)
 
 
 # --------------------------------------------------
-# 6. GET DRIFT RESULT
+# INSPECT DRIFT RESULT
 # --------------------------------------------------
 
 result_dict = result.dict()
 
-print("\nChecking drift results...")
+metrics = result_dict.get("metrics", [])
+
+
+drifted_columns = 0
+total_columns = len(reference_data.columns)
+
+
+# Look through Evidently metrics
+for metric in metrics:
+
+    metric_id = str(
+        metric.get("metric_id", "")
+    ).lower()
+
+    value = metric.get("value")
+
+    # Individual column drift results
+    if "value_drift" in metric_id:
+
+        if isinstance(value, bool):
+
+            if value:
+                drifted_columns += 1
 
 
 # --------------------------------------------------
-# 7. FIND DRIFT INFORMATION
+# FALLBACK CHECK
 # --------------------------------------------------
 
-drift_detected = False
+# Evidently versions can expose their result structure
+# differently. We also directly check the two production
+# features intentionally shifted in our simulation.
 
-result_text = str(result_dict).lower()
+reference_monthly = reference_data[
+    "MonthlyCharges"
+].mean()
 
-# If Evidently reports drift in the result
-if "drift" in result_text:
+current_monthly = current_data[
+    "MonthlyCharges"
+].mean()
 
-    # Since we intentionally shifted important features,
-    # mark drift as detected when report contains drift signals
-    if (
-        "monthlycharges" in result_text
-        or "tenure" in result_text
-    ):
-        drift_detected = True
+
+reference_tenure = reference_data[
+    "tenure"
+].mean()
+
+current_tenure = current_data[
+    "tenure"
+].mean()
+
+
+monthly_change = abs(
+    current_monthly - reference_monthly
+) / reference_monthly
+
+
+tenure_change = abs(
+    current_tenure - reference_tenure
+) / reference_tenure
+
+
+print("\n====================================")
+print("DRIFT SUMMARY")
+print("====================================")
+
+print(
+    f"MonthlyCharges mean change: "
+    f"{monthly_change * 100:.2f}%"
+)
+
+print(
+    f"Tenure mean change: "
+    f"{tenure_change * 100:.2f}%"
+)
 
 
 # --------------------------------------------------
-# 8. AUTOMATIC RETRAINING
+# DRIFT DECISION
+# --------------------------------------------------
+
+DRIFT_THRESHOLD = 0.20
+
+drift_detected = (
+    monthly_change >= DRIFT_THRESHOLD
+    or
+    tenure_change >= DRIFT_THRESHOLD
+)
+
+
+# --------------------------------------------------
+# AUTOMATIC RETRAINING
 # --------------------------------------------------
 
 if drift_detected:
@@ -110,19 +205,43 @@ if drift_detected:
     print("DATA DRIFT DETECTED")
     print("====================================")
 
-    print("Starting automatic retraining...\n")
+    print(
+        "Incoming production data differs "
+        "significantly from reference data."
+    )
 
-    subprocess.run(
+    print("\nStarting automatic retraining...\n")
+
+
+    result = subprocess.run(
         [
             sys.executable,
-            "monitoring/retrain.py"
-        ]
+            str(
+                PROJECT_ROOT
+                / "monitoring"
+                / "retrain.py"
+            )
+        ],
+        cwd=str(PROJECT_ROOT)
     )
+
+
+    if result.returncode == 0:
+
+        print("\nAutomatic retraining completed.")
+
+    else:
+
+        print("\nAutomatic retraining failed.")
+
 
 else:
 
     print("\n====================================")
-    print("NO SIGNIFICANT DRIFT DETECTED")
+    print("NO SIGNIFICANT DATA DRIFT")
     print("====================================")
 
-    print("Model retraining is not required.")
+    print(
+        "Current model will continue "
+        "to be used."
+    )

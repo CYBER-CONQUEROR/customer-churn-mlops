@@ -57,6 +57,20 @@ def retrain_model():
             print(
                 "models/churn_model.joblib"
             )
+            
+            print("\nStarting model validation...")
+
+            promotion_result = subprocess.run(
+                [
+                    sys.executable,
+                    "monitoring/promote.py"
+                ],
+                text=True
+            )
+
+            if promotion_result.returncode != 0:
+                print("Model validation/promotion failed.")
+                return False
 
             return True
 

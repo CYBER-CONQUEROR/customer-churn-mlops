@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import joblib
+import sys
 from pathlib import Path
 
 
@@ -18,6 +19,12 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 MODEL_FILE = PROJECT_ROOT / "models" / "churn_model.joblib"
 INCOMING_FILE = PROJECT_ROOT / "data" / "incoming_data.csv"
+
+# Allow imports from project root
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from monitoring.pipeline import run_mlops_pipeline
 
 
 # ==================================================
@@ -68,6 +75,62 @@ REQUIRED_COLUMNS = [
 
 
 # ==================================================
+# SAMPLE DATA
+# ==================================================
+
+sample_data = pd.DataFrame(
+    [
+        {
+            "customerID": "DEMO-0001",
+            "gender": "Female",
+            "SeniorCitizen": 0,
+            "Partner": "Yes",
+            "Dependents": "No",
+            "tenure": 12,
+            "PhoneService": "Yes",
+            "MultipleLines": "No",
+            "InternetService": "Fiber optic",
+            "OnlineSecurity": "No",
+            "OnlineBackup": "Yes",
+            "DeviceProtection": "No",
+            "TechSupport": "No",
+            "StreamingTV": "Yes",
+            "StreamingMovies": "Yes",
+            "Contract": "Month-to-month",
+            "PaperlessBilling": "Yes",
+            "PaymentMethod": "Electronic check",
+            "MonthlyCharges": 85.50,
+            "TotalCharges": 1026.00,
+            "Churn": "Yes"
+        },
+        {
+            "customerID": "DEMO-0002",
+            "gender": "Male",
+            "SeniorCitizen": 0,
+            "Partner": "Yes",
+            "Dependents": "Yes",
+            "tenure": 48,
+            "PhoneService": "Yes",
+            "MultipleLines": "Yes",
+            "InternetService": "DSL",
+            "OnlineSecurity": "Yes",
+            "OnlineBackup": "Yes",
+            "DeviceProtection": "Yes",
+            "TechSupport": "Yes",
+            "StreamingTV": "No",
+            "StreamingMovies": "No",
+            "Contract": "Two year",
+            "PaperlessBilling": "No",
+            "PaymentMethod": "Credit card (automatic)",
+            "MonthlyCharges": 55.25,
+            "TotalCharges": 2652.00,
+            "Churn": "No"
+        }
+    ]
+)
+
+
+# ==================================================
 # HEADER
 # ==================================================
 
@@ -107,7 +170,6 @@ with prediction_tab:
     )
 
     col1, col2 = st.columns(2)
-
 
     # --------------------------------------------------
     # LEFT COLUMN
@@ -174,7 +236,6 @@ with prediction_tab:
                 "No internet service"
             ]
         )
-
 
     # --------------------------------------------------
     # RIGHT COLUMN
@@ -265,9 +326,8 @@ with prediction_tab:
             step=10.0
         )
 
-
     # --------------------------------------------------
-    # PREDICTION BUTTON
+    # PREDICTION
     # --------------------------------------------------
 
     st.divider()
@@ -304,9 +364,7 @@ with prediction_tab:
 
         try:
 
-            prediction = model.predict(
-                customer_df
-            )[0]
+            prediction = model.predict(customer_df)[0]
 
             probability = model.predict_proba(
                 customer_df
@@ -374,9 +432,9 @@ with monitoring_tab:
     st.header("⚙️ MLOps Monitoring Dashboard")
 
     st.write(
-        "Monitor the production model and upload newly "
-        "collected labeled customer data for the "
-        "automated MLOps pipeline."
+        "Upload newly collected labeled customer data. "
+        "After validation, the platform automatically "
+        "starts the MLOps monitoring pipeline."
     )
 
 
@@ -386,31 +444,69 @@ with monitoring_tab:
 
     st.subheader("📦 Production Model Status")
 
-    status1, status2 = st.columns(2)
+    status1, status2, status3 = st.columns(3)
 
     with status1:
 
         if MODEL_FILE.exists():
 
             st.success(
-                "🟢 Production model available"
+                "🟢 Model Online"
             )
 
         else:
 
             st.error(
-                "🔴 Production model unavailable"
+                "🔴 Model Unavailable"
             )
 
     with status2:
 
+        try:
+            classifier_name = (
+                model.named_steps[
+                    "classifier"
+                ].__class__.__name__
+            )
+
+        except Exception:
+            classifier_name = "Churn Classifier"
+
         st.metric(
-            "Model",
-            "Customer Churn Classifier"
+            "Production Model",
+            classifier_name
         )
 
+    with status3:
+
+        if INCOMING_FILE.exists():
+
+            try:
+                existing_incoming = pd.read_csv(
+                    INCOMING_FILE
+                )
+
+                st.metric(
+                    "Latest Batch",
+                    f"{len(existing_incoming)} records"
+                )
+
+            except Exception:
+
+                st.metric(
+                    "Latest Batch",
+                    "Available"
+                )
+
+        else:
+
+            st.metric(
+                "Latest Batch",
+                "None"
+            )
+
     st.caption(
-        "Production model: models/churn_model.joblib"
+        "Production artifact: models/churn_model.joblib"
     )
 
     st.divider()
@@ -423,67 +519,13 @@ with monitoring_tab:
     st.subheader("📄 Incoming Data Schema")
 
     st.write(
-        "New labeled production data must follow the "
-        "same schema used by the churn model."
+        "Download the sample CSV to see the exact "
+        "format expected by the automated pipeline."
     )
-
-
-    sample_data = pd.DataFrame(
-        [
-            {
-                "customerID": "DEMO-0001",
-                "gender": "Female",
-                "SeniorCitizen": 0,
-                "Partner": "Yes",
-                "Dependents": "No",
-                "tenure": 12,
-                "PhoneService": "Yes",
-                "MultipleLines": "No",
-                "InternetService": "Fiber optic",
-                "OnlineSecurity": "No",
-                "OnlineBackup": "Yes",
-                "DeviceProtection": "No",
-                "TechSupport": "No",
-                "StreamingTV": "Yes",
-                "StreamingMovies": "Yes",
-                "Contract": "Month-to-month",
-                "PaperlessBilling": "Yes",
-                "PaymentMethod": "Electronic check",
-                "MonthlyCharges": 85.50,
-                "TotalCharges": 1026.00,
-                "Churn": "Yes"
-            },
-            {
-                "customerID": "DEMO-0002",
-                "gender": "Male",
-                "SeniorCitizen": 0,
-                "Partner": "Yes",
-                "Dependents": "Yes",
-                "tenure": 48,
-                "PhoneService": "Yes",
-                "MultipleLines": "Yes",
-                "InternetService": "DSL",
-                "OnlineSecurity": "Yes",
-                "OnlineBackup": "Yes",
-                "DeviceProtection": "Yes",
-                "TechSupport": "Yes",
-                "StreamingTV": "No",
-                "StreamingMovies": "No",
-                "Contract": "Two year",
-                "PaperlessBilling": "No",
-                "PaymentMethod": "Credit card (automatic)",
-                "MonthlyCharges": 55.25,
-                "TotalCharges": 2652.00,
-                "Churn": "No"
-            }
-        ]
-    )
-
 
     sample_csv = sample_data.to_csv(
         index=False
     )
-
 
     st.download_button(
         label="⬇️ Download Sample CSV Template",
@@ -494,13 +536,13 @@ with monitoring_tab:
     )
 
     st.caption(
-        "Download this file to view the required "
-        "column names, format, and example values."
+        "The sample contains valid example values "
+        "for every required feature."
     )
 
 
     # ==================================================
-    # SHOW REQUIRED COLUMNS
+    # REQUIRED COLUMNS
     # ==================================================
 
     with st.expander(
@@ -519,23 +561,23 @@ with monitoring_tab:
             hide_index=True
         )
 
-
     st.divider()
 
 
     # ==================================================
-    # UPLOAD NEW DATA
+    # UPLOAD DATA
     # ==================================================
 
-    st.subheader("📤 Upload Incoming Customer Data")
-
-    st.info(
-        "Upload a CSV containing newly collected "
-        "labeled customer records. The 'Churn' column "
-        "is required because the data may be used "
-        "for model retraining."
+    st.subheader(
+        "📤 Upload Incoming Customer Data"
     )
 
+    st.info(
+        "Upload newly collected labeled customer data. "
+        "The 'Churn' column must contain Yes or No "
+        "because confirmed outcomes are required "
+        "for supervised retraining."
+    )
 
     uploaded_file = st.file_uploader(
         "Choose incoming customer CSV",
@@ -544,7 +586,7 @@ with monitoring_tab:
 
 
     # ==================================================
-    # PROCESS UPLOADED DATA
+    # PROCESS UPLOAD
     # ==================================================
 
     if uploaded_file is not None:
@@ -561,12 +603,16 @@ with monitoring_tab:
 
 
             # ==================================================
-            # DATASET METRICS
+            # DATASET SUMMARY
             # ==================================================
 
-            st.subheader("📊 Incoming Dataset Summary")
+            st.subheader(
+                "📊 Incoming Dataset Summary"
+            )
 
-            metric1, metric2, metric3 = st.columns(3)
+            metric1, metric2, metric3 = (
+                st.columns(3)
+            )
 
             metric1.metric(
                 "Incoming Records",
@@ -595,7 +641,9 @@ with monitoring_tab:
             # DATA PREVIEW
             # ==================================================
 
-            st.subheader("👀 Incoming Data Preview")
+            st.subheader(
+                "👀 Incoming Data Preview"
+            )
 
             st.dataframe(
                 incoming_data.head(10),
@@ -607,7 +655,9 @@ with monitoring_tab:
             # SCHEMA VALIDATION
             # ==================================================
 
-            st.subheader("🔎 Schema Validation")
+            st.subheader(
+                "🔎 Schema Validation"
+            )
 
             missing_columns = [
                 column
@@ -657,14 +707,15 @@ with monitoring_tab:
 
                     st.warning(
                         "Extra columns were detected. "
-                        "They will not be used by the model."
+                        "They will be removed before "
+                        "the batch enters the pipeline."
                     )
 
                     st.write(extra_columns)
 
 
                 # ==================================================
-                # TARGET LABEL VALIDATION
+                # TARGET VALIDATION
                 # ==================================================
 
                 st.subheader(
@@ -676,22 +727,24 @@ with monitoring_tab:
                     .isin(["Yes", "No"])
                 )
 
-
                 if invalid_labels.any():
 
                     st.error(
-                        "❌ The Churn column contains "
-                        "invalid values."
+                        "❌ Churn contains invalid values."
                     )
 
                     st.write(
-                        "Allowed values are:"
+                        "Allowed target values:"
                     )
 
                     st.code(
                         "Yes\nNo"
                     )
 
+
+                # ==================================================
+                # VALID LABELS
+                # ==================================================
 
                 else:
 
@@ -701,7 +754,7 @@ with monitoring_tab:
 
 
                     # ==================================================
-                    # LABEL DISTRIBUTION
+                    # CHURN DISTRIBUTION
                     # ==================================================
 
                     st.subheader(
@@ -712,7 +765,9 @@ with monitoring_tab:
                         incoming_data["Churn"]
                         .value_counts()
                         .rename_axis("Churn")
-                        .reset_index(name="Customers")
+                        .reset_index(
+                            name="Customers"
+                        )
                     )
 
                     st.dataframe(
@@ -723,33 +778,41 @@ with monitoring_tab:
 
 
                     # ==================================================
-                    # ACCEPT DATA
+                    # ACCEPT BATCH
                     # ==================================================
 
                     st.divider()
 
                     st.subheader(
-                        "✅ Accept Production Batch"
+                        "🚀 Start Automated MLOps Pipeline"
                     )
 
                     st.write(
-                        "After validation, accept this "
-                        "dataset as the latest incoming "
-                        "production batch."
+                        "Accepting this production batch will "
+                        "save the data and automatically start "
+                        "drift detection."
+                    )
+
+                    st.warning(
+                        "If significant data drift is detected, "
+                        "the platform will automatically retrain "
+                        "and evaluate a candidate model."
                     )
 
 
                     if st.button(
-                        "💾 Accept Incoming Data",
+                        "💾 Accept Data & Run Pipeline",
                         type="primary",
                         use_container_width=True
                     ):
 
-                        # Remove any unsupported extra columns
+                        # ------------------------------------------
+                        # CLEAN ACCEPTED DATA
+                        # ------------------------------------------
+
                         accepted_data = incoming_data[
                             REQUIRED_COLUMNS
                         ].copy()
-
 
                         # Add arrival timestamp
                         accepted_data[
@@ -758,26 +821,22 @@ with monitoring_tab:
                             tz="UTC"
                         ).isoformat()
 
-
-                        # Ensure data directory exists
+                        # Make sure directory exists
                         INCOMING_FILE.parent.mkdir(
                             parents=True,
                             exist_ok=True
                         )
 
-
-                        # Save incoming production data
+                        # Save batch
                         accepted_data.to_csv(
                             INCOMING_FILE,
                             index=False
                         )
 
-
                         st.success(
-                            "🎉 Incoming production batch "
-                            "accepted successfully!"
+                            "✅ Incoming production batch "
+                            "accepted successfully."
                         )
-
 
                         st.write(
                             f"**Records accepted:** "
@@ -785,69 +844,153 @@ with monitoring_tab:
                         )
 
 
-                        st.info(
-                            "The incoming dataset is now "
-                            "ready for drift detection and "
-                            "the automated retraining pipeline."
+                        # ==================================================
+                        # RUN AUTOMATED PIPELINE
+                        # ==================================================
+
+                        st.subheader(
+                            "⚙️ Automated Pipeline Execution"
                         )
+
+                        with st.spinner(
+                            "Running drift detection and "
+                            "automated MLOps pipeline..."
+                        ):
+
+                            pipeline_result = (
+                                run_mlops_pipeline()
+                            )
+
+
+                        # ==================================================
+                        # PIPELINE RESULT
+                        # ==================================================
+
+                        if pipeline_result[
+                            "success"
+                        ]:
+
+                            st.success(
+                                "🎉 Automated MLOps pipeline "
+                                "completed successfully!"
+                            )
+
+                        else:
+
+                            st.error(
+                                "❌ MLOps pipeline failed."
+                            )
+
+
+                        # ==================================================
+                        # PIPELINE LOGS
+                        # ==================================================
+
+                        with st.expander(
+                            "📋 View Pipeline Execution Logs",
+                            expanded=True
+                        ):
+
+                            st.code(
+                                pipeline_result[
+                                    "output"
+                                ]
+                            )
+
+
+                        # ==================================================
+                        # RELOAD MODEL AFTER PROMOTION
+                        # ==================================================
+
+                        if pipeline_result[
+                            "success"
+                        ]:
+
+                            load_model.clear()
+
+                            st.info(
+                                "🔄 Production model cache "
+                                "has been refreshed."
+                            )
+
+                            st.caption(
+                                "If a better candidate was "
+                                "promoted, future predictions "
+                                "will use the updated model."
+                            )
 
 
         except Exception as error:
 
             st.error(
-                "❌ Unable to process the uploaded CSV."
+                "❌ Unable to process uploaded CSV."
             )
 
-            st.error(
-                str(error)
-            )
+            st.exception(error)
 
 
     # ==================================================
-    # MLOPS PIPELINE STATUS
+    # PIPELINE ARCHITECTURE
     # ==================================================
 
     st.divider()
 
     st.subheader(
-        "🔄 Automated MLOps Pipeline"
+        "🔄 Automated MLOps Lifecycle"
     )
 
     st.write(
-        "Validated production data flows through "
-        "the following MLOps lifecycle:"
+        "Incoming production data moves through "
+        "the following automated lifecycle:"
     )
 
     st.code(
         """
-Incoming Labeled Customer Data
-              ↓
-       Schema Validation
-              ↓
-      Data Drift Detection
-         (Evidently)
-              ↓
-        Drift Detected?
-          ↙       ↘
-        No         Yes
-        ↓           ↓
-   Keep Model   Retraining
-                    ↓
-             MLflow Tracking
-                    ↓
-             Candidate Model
-                    ↓
-             Model Validation
-                    ↓
-          Candidate Better?
-              ↙         ↘
-            No           Yes
-            ↓             ↓
-          Reject       Promote
-                          ↓
-                       CI/CD
-                          ↓
-                Production Deployment
+          Incoming Labeled Data
+                   │
+                   ▼
+            Schema Validation
+                   │
+                   ▼
+           Save Production Batch
+                   │
+                   ▼
+            Drift Detection
+              (Evidently)
+                   │
+                   ▼
+             Drift Detected?
+              /          \\
+            NO            YES
+            │              │
+            ▼              ▼
+       Keep Current     Retrain Models
+          Model              │
+                             ▼
+                      MLflow Tracking
+                             │
+                             ▼
+                       Best Candidate
+                             │
+                             ▼
+                    Champion vs Candidate
+                             │
+                             ▼
+                      Candidate Better?
+                       /          \\
+                     NO            YES
+                     │              │
+                     ▼              ▼
+                   Reject        Promote
+                                    │
+                                    ▼
+                             Production Model
+                                    │
+                                    ▼
+                                  CI/CD
+                                    │
+                                    ▼
+                            Cloud Deployment
         """
     )
 
@@ -860,6 +1003,6 @@ st.divider()
 
 st.caption(
     "Customer Churn AI Platform | "
-    "Real-Time Prediction • Data Drift Monitoring • "
-    "Automated Retraining • MLOps"
+    "Real-Time Prediction • Drift Detection • "
+    "Automated Retraining • MLflow • CI/CD"
 )
