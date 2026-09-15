@@ -1,4 +1,9 @@
+pandas
+scikit-learn
+joblib
+streamlit
+fastapi
+uvicorn
 mlflow
 evidently
-streamlit
 requests
