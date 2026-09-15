@@ -1,0 +1,24 @@
+artifact_path: file:C:/Users/sampa/Desktop/Gamage/Month 1/Task 5/customer-churn-mlops/mlruns/1/models/m-4cf8ddedea7d45e6bbe7a5e5e7766ecd/artifacts
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.skops
+    predict_fn: predict
+    python_version: 3.13.14
+  sklearn:
+    code: null
+    pickled_model: model.skops
+    serialization_format: skops
+    sklearn_version: 1.9.1
+    skops_trusted_types:
+    - numpy.dtype
+mlflow_version: 3.16.0
+model_id: m-4cf8ddedea7d45e6bbe7a5e5e7766ecd
+model_size_bytes: 45526188
+model_uuid: m-4cf8ddedea7d45e6bbe7a5e5e7766ecd
+prompts: null
+run_id: 5933bf2ce6af41928fb6d5c22885d6cb
+utc_time_created: '2026-09-14 10:52:14.358031'
